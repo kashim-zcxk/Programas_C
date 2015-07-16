@@ -35,7 +35,6 @@ enum estado_hilo
     EJECUTAR = 1
 };
 
-struct timespec periodo_hilo;
 unsigned char estado = EJECUTAR;
 
 void *callback_Hilo_Periodico(void *t);
@@ -60,21 +59,27 @@ void catch(int sig)
 void *callback_Hilo_Periodico(void *variable)
 {
     int num_hilo = (intptr_t)variable;
-    struct timespec interrupcion;
+    struct timespec siguiente;
+    struct timespec periodo_hilo;
+
+    /*Periodo del hilo*/
+    periodo_hilo.tv_nsec = 0;
+    periodo_hilo.tv_sec = 2;
 
     printf("Hilo %d: fue creado.\n",num_hilo);
-    /*Se obtiene un tiempo base*/
-    clock_gettime(CLOCK_REALTIME, &interrupcion);
+    /*Se obtiene el tiempo de la primera interrupción*/
+    clock_gettime(CLOCK_MONOTONIC, &siguiente);
 
     while(estado == EJECUTAR)
     {
-	/*Se suma el tiempo interrupcion más el tiempo del periodo
-	* tiempo_Int = tiempo_Int + tiempo_periodo	
+	/*Se suma el tiempo siguiente más el tiempo del periodo
+	* tiempo_siguiente = tiempo_siguiente + tiempo_periodo	
+	* Esto se debe porque usamos un timer absoluto
 	*/
-        timespec_add(&interrupcion,&periodo_hilo);
+        timespec_add(&siguiente,&periodo_hilo);
 	/*El hilo duerme*/
-        clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME,&interrupcion,NULL);
-	printf("¡Hola! Soy un hilo periodico.\n");			
+        clock_nanosleep(CLOCK_MONOTONIC,TIMER_ABSTIME,&siguiente,NULL);
+	printf("¡Hola! Soy un hilo periodico. %ld\n",(long)siguiente.tv_sec);			
     }
 
     puts("Terminando el hilo.");
@@ -88,10 +93,6 @@ int main(int argc, char **argv)
 {
     pthread_t hilo_periodico;
     int rc, num_hilo=0;
-
-    /*Periodo del hilo*/
-    periodo_hilo.tv_nsec=0;
-    periodo_hilo.tv_sec=2;
 
     /*Configuración de la señal*/
     signal(SIGINT, &catch);
